@@ -54,7 +54,4 @@
 Добавьте сюда диаграмму контекста в модели C4.
 
 Чтобы добавить ссылку в файл Readme.md, нужно использовать синтаксис Markdown. Это делают так:
-
-```markdown
-[C4 Context Diagram](https://github.com/alexruek/architecture-pro-warmhouse/edit/warmhouse/schemas/c4-context.puml)
-```
+![C4 Context Diagram](https://www.plantuml.com/plantuml/svg/proxy?src=https://raw.githubusercontent.com/alexruek/architecture-pro-warmhouse/warmhouse/schemas/c4-context.puml)
