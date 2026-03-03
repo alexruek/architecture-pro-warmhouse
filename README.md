@@ -51,4 +51,4 @@
 
 ### 5. Визуализация контекста системы — диаграмма С4
 
-![C4 Context Diagram](https://www.plantuml.com/plantuml/svg/proxy?src=https://raw.githubusercontent.com/alexruek/architecture-pro-warmhouse/warmhouse/schemas/c4-context.puml)
+![C4 Context Diagram](https://www.plantuml.com/plantuml/png/~1proxy?src=https://raw.githubusercontent.com/alexruek/architecture-pro-warmhouse/warmhouse/schemas/c4-context.puml)
