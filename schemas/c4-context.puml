@@ -1,24 +1,23 @@
-@startuml C4_Context_WarmHome
+@startuml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
 
 LAYOUT_WITH_LEGEND()
 
 title Контекстная диаграмма C4 — «Тёплый дом» (As-Is)
 
-Person(resident, "Житель поселка", "Управляет отоплением через веб-интерфейс")
-Person(admin, "Администратор", "Конфигурирует систему и управляет пользователями")
+Person(resident, "Житель посёлка", "Управляет отоплением\nчерез веб-интерфейс")
+Person(admin, "Администратор", "Конфигурирует систему\nи управляет пользователями")
 
-System(smartHome, "Теплый дом", "Монолитное Go-приложение. Управляет датчиками температуры и отоплением умного дома. Порт: 8080")
+System(smartHome, "Тёплый дом", "Монолитное Go-приложение.\nУправляет датчиками температуры\nи отоплением умного дома.\nПорт: 8080")
 
-System_Ext(tempSensors, "IoT-датчики температуры", "Физические датчики в комнатах (Living Room, Bedroom, Kitchen)")
-System_Ext(heatingDevices, "Устройства отопления", "Физические термостаты и нагреватели в домах")
-System_Ext(webBrowser, "Веб-браузер", "Клиентское приложение для управления системой")
+System_Ext(tempSensors, "IoT-датчики температуры", "Физические датчики в комнатах\n(Living Room, Bedroom, Kitchen)")
+System_Ext(heatingDevices, "Устройства отопления", "Физические термостаты\nи нагреватели в домах")
+System_Ext(webBrowser, "Веб-браузер", "Клиентское приложение\nдля управления системой")
 
-Rel(resident, webBrowser, "Просматривает температуру, управляет отоплением", "HTTPS")
+Rel(resident, webBrowser, "Просматривает температуру,\nуправляет отоплением", "HTTPS")
 Rel(admin, webBrowser, "Управляет конфигурацией", "HTTPS")
 Rel(webBrowser, smartHome, "REST API-запросы", "HTTP/JSON")
-Rel(tempSensors, smartHome, "Отправляет показания (PATCH /sensors/:id/value)", "HTTP/JSON")
-Rel(smartHome, heatingDevices, "Управляющие команды (вкл/выкл, целевая температура)", "HTTP")
-Rel(smartHome, resident, "Push-уведомления о состоянии системы", "WebSocket/HTTP")
-
+Rel(tempSensors, smartHome, "Отправляет показания\n(PATCH /sensors/:id/value)", "HTTP/JSON")
+Rel(smartHome, heatingDevices, "Управляющие команды\n(вкл/выкл, целевая температура)", "HTTP")
+Rel(smartHome, resident, "Push-уведомления\no состоянии системы", "WebSocket/HTTP")
 @enduml
