@@ -1,0 +1,84 @@
+@startuml C4_Containers_WarmHome_ToBe
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+title C4 Containers — «Теплый дом» (To-Be)
+
+Person(resident, "Житель поселка", "Управляет устройствами, настраивает сценарии, просматривает телеметрию")
+Person(admin, "Администратор", "Управляет пользователями и конфигурацией платформы")
+
+System_Boundary(platform, "Платформа «Теплый дом»") {
+
+  Container(webApp, "Web / Mobile App", "React / iOS / Android", "Интерфейс самообслуживания пользователя")
+  Container(apiGateway, "API Gateway", "Nginx / Envoy", "Маршрутизация запросов, аутентификация, rate limiting")
+
+  Container(userService, "User Service", "Go", "Регистрация, аутентификация, управление доступом к домам")
+  ContainerDb(userDb, "User DB", "PostgreSQL", "Пользователи, дома, роли, права")
+
+  Container(deviceService, "Device Service", "Go", "Регистрация устройств, управление состоянием, поддержка партнерских протоколов")
+  ContainerDb(deviceDb, "Device DB", "PostgreSQL", "Устройства, типы, серийные номера, статусы")
+
+  Container(telemetryService, "Telemetry Service", "Go", "Прием, хранение и выдача телеметрии от всех устройств")
+  ContainerDb(telemetryDb, "Telemetry DB", "TimescaleDB", "Временные ряды телеметрии")
+
+  Container(heatingService, "Heating Service", "Go", "Управление отоплением: целевые температуры, режимы, зоны")
+  ContainerDb(heatingDb, "Heating DB", "PostgreSQL", "Зоны, целевые значения, история команд")
+
+  Container(lightingService, "Lighting Service", "Go", "Управление освещением: включение, выключение, яркость")
+  ContainerDb(lightingDb, "Lighting DB", "PostgreSQL", "Группы светильников, состояния, расписания")
+
+  Container(gateService, "Gate Service", "Go", "Управление воротами: открытие, закрытие, статус")
+  ContainerDb(gateDb, "Gate DB", "PostgreSQL", "Ворота, статусы, журнал событий")
+
+  Container(cameraService, "Camera Service", "Go", "Удаленное видеонаблюдение, архив записей, motion detection")
+  ContainerDb(cameraDb, "Camera DB", "PostgreSQL", "Камеры, метаданные записей, настройки")
+
+  Container(scenarioService, "Scenario Service", "Go", "Пользовательские сценарии автоматизации (if-then логика)")
+  ContainerDb(scenarioDb, "Scenario DB", "PostgreSQL", "Сценарии, триггеры, действия")
+
+  Container(notificationService, "Notification Service", "Go", "Формирование и отправка уведомлений по событиям")
+  ContainerDb(notifDb, "Notification DB", "PostgreSQL", "Шаблоны, журнал отправки")
+
+  Container(broker, "Message Broker", "Kafka", "Асинхронный обмен событиями между сервисами")
+}
+
+System_Ext(iotDevices, "IoT устройства", "Датчики температуры, реле освещения, контроллеры ворот, IP-камеры")
+System_Ext(extNotif, "E-mail / SMS / Push провайдеры", "Внешние каналы доставки уведомлений")
+
+Rel(resident, webApp, "Использует", "HTTPS")
+Rel(admin, webApp, "Администрирует", "HTTPS")
+Rel(webApp, apiGateway, "REST / WebSocket", "HTTPS / JSON")
+
+Rel(apiGateway, userService, "Аутентификация и авторизация", "REST")
+Rel(apiGateway, deviceService, "Управление устройствами", "REST")
+Rel(apiGateway, telemetryService, "Просмотр телеметрии", "REST")
+Rel(apiGateway, heatingService, "Управление отоплением", "REST")
+Rel(apiGateway, lightingService, "Управление освещением", "REST")
+Rel(apiGateway, gateService, "Управление воротами", "REST")
+Rel(apiGateway, cameraService, "Видеонаблюдение", "REST")
+Rel(apiGateway, scenarioService, "Настройка сценариев", "REST")
+
+Rel(userService, userDb, "R/W", "SQL")
+Rel(deviceService, deviceDb, "R/W", "SQL")
+Rel(telemetryService, telemetryDb, "R/W", "SQL")
+Rel(heatingService, heatingDb, "R/W", "SQL")
+Rel(lightingService, lightingDb, "R/W", "SQL")
+Rel(gateService, gateDb, "R/W", "SQL")
+Rel(cameraService, cameraDb, "R/W", "SQL")
+Rel(scenarioService, scenarioDb, "R/W", "SQL")
+Rel(notificationService, notifDb, "R/W", "SQL")
+
+Rel(iotDevices, telemetryService, "Отправляет показания", "MQTT / HTTP")
+Rel(deviceService, iotDevices, "Отправляет команды управления", "MQTT / HTTP")
+
+Rel(telemetryService, broker, "Публикует: TelemetryReceived", "publish")
+Rel(heatingService, broker, "Подписан: TelemetryReceived", "subscribe")
+Rel(lightingService, broker, "Подписан: TelemetryReceived", "subscribe")
+Rel(scenarioService, broker, "Подписан: TelemetryReceived, DeviceStatusChanged", "subscribe")
+Rel(deviceService, broker, "Публикует: DeviceStatusChanged", "publish")
+Rel(notificationService, broker, "Подписан: все события-алерты", "subscribe")
+Rel(scenarioService, broker, "Публикует: команды выполнения сценариев", "publish")
+
+Rel(notificationService, extNotif, "Отправляет уведомления", "HTTPS / SMTP")
+
+@enduml
