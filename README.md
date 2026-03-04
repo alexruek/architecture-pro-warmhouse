@@ -86,3 +86,9 @@
 ## Разработка ER-диаграммы
 
 ![ER-diagram](schemas/er-diagram.svg)
+
+## API
+
+REST API: [api/openapi.yaml](./api/openapi.yaml)  
+AsyncAPI: [api/asyncapi.yaml](./api/asyncapi.yaml)  
+Интерактивный просмотр REST: https://editor.swagger.io (вставить содержимое openapi.yaml)

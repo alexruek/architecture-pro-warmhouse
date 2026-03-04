@@ -1,0 +1,375 @@
+openapi: 3.0.3
+info:
+  title: Тёплый дом — Platform API
+  description: REST API для управления устройствами и просмотра телеметрии
+  version: 1.0.0
+
+servers:
+  - url: https://api.teplydом.ru/v1
+    description: Production
+  - url: http://localhost:8080/v1
+    description: Local development
+
+tags:
+  - name: Devices
+    description: Управление устройствами (Device Service)
+  - name: Telemetry
+    description: Телеметрия устройств (Telemetry Service)
+
+paths:
+
+  /devices:
+    post:
+      tags: [Devices]
+      summary: Зарегистрировать устройство
+      operationId: registerDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDeviceRequest'
+            example:
+              type_id: "b3f2c1a0-0001-0001-0001-000000000001"
+              house_id: "a1b2c3d4-0001-0001-0001-000000000002"
+              serial_number: "HTG-2024-001234"
+              name: "Датчик гостиной"
+      responses:
+        '201':
+          description: Устройство зарегистрировано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+              example:
+                id: "d1e2f3a4-0001-0001-0001-000000000010"
+                type_id: "b3f2c1a0-0001-0001-0001-000000000001"
+                house_id: "a1b2c3d4-0001-0001-0001-000000000002"
+                serial_number: "HTG-2024-001234"
+                name: "Датчик гостиной"
+                status: "OFFLINE"
+                registered_at: "2024-03-01T10:00:00Z"
+        '400':
+          description: Некорректные данные запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: "VALIDATION_ERROR"
+                message: "serial_number is required"
+        '409':
+          description: Устройство с таким serial_number уже зарегистрировано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /devices/{deviceId}:
+    get:
+      tags: [Devices]
+      summary: Получить информацию об устройстве
+      operationId: getDevice
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "d1e2f3a4-0001-0001-0001-000000000010"
+      responses:
+        '200':
+          description: Информация об устройстве
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+              example:
+                id: "d1e2f3a4-0001-0001-0001-000000000010"
+                type_id: "b3f2c1a0-0001-0001-0001-000000000001"
+                house_id: "a1b2c3d4-0001-0001-0001-000000000002"
+                serial_number: "HTG-2024-001234"
+                name: "Датчик гостиной"
+                status: "ONLINE"
+                registered_at: "2024-03-01T10:00:00Z"
+                last_seen_at: "2024-03-01T15:30:00Z"
+        '404':
+          description: Устройство не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: "DEVICE_NOT_FOUND"
+                message: "Device d1e2f3a4-0001-0001-0001-000000000010 not found"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /devices/{deviceId}/commands:
+    post:
+      tags: [Devices]
+      summary: Отправить команду устройству
+      operationId: sendCommand
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceCommandRequest'
+            examples:
+              turn_on:
+                summary: Включить устройство
+                value:
+                  command_type: "TURN_ON"
+                  payload: {}
+              set_temperature:
+                summary: Установить температуру
+                value:
+                  command_type: "SET_TARGET_TEMPERATURE"
+                  payload:
+                    temperature: 22.5
+      responses:
+        '202':
+          description: Команда принята к выполнению
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResponse'
+              example:
+                command_id: "c9f0a1b2-0001-0001-0001-000000000099"
+                status: "ACCEPTED"
+                device_id: "d1e2f3a4-0001-0001-0001-000000000010"
+                command_type: "TURN_ON"
+                created_at: "2024-03-01T15:31:00Z"
+        '404':
+          description: Устройство не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Устройство недоступно (OFFLINE или уже выполняет команду)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: "DEVICE_UNAVAILABLE"
+                message: "Device is currently OFFLINE"
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /telemetry/{deviceId}:
+    get:
+      tags: [Telemetry]
+      summary: Получить историю телеметрии устройства
+      operationId: getDeviceTelemetry
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: metric_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [TEMPERATURE, HUMIDITY, POWER]
+          example: TEMPERATURE
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          example: "2024-03-01T00:00:00Z"
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          example: "2024-03-01T23:59:59Z"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+      responses:
+        '200':
+          description: История телеметрии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryListResponse'
+              example:
+                device_id: "d1e2f3a4-0001-0001-0001-000000000010"
+                total: 2
+                items:
+                  - id: "t0001"
+                    metric_type: "TEMPERATURE"
+                    value: 21.3
+                    unit: "°C"
+                    recorded_at: "2024-03-01T15:00:00Z"
+                  - id: "t0002"
+                    metric_type: "TEMPERATURE"
+                    value: 21.7
+                    unit: "°C"
+                    recorded_at: "2024-03-01T15:05:00Z"
+        '404':
+          description: Устройство не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+
+    RegisterDeviceRequest:
+      type: object
+      required: [type_id, house_id, serial_number, name]
+      properties:
+        type_id:
+          type: string
+          format: uuid
+        house_id:
+          type: string
+          format: uuid
+        serial_number:
+          type: string
+        name:
+          type: string
+
+    Device:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type_id:
+          type: string
+          format: uuid
+        house_id:
+          type: string
+          format: uuid
+        serial_number:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum: [ONLINE, OFFLINE, ERROR, EXECUTING]
+        registered_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type: string
+          format: date-time
+
+    DeviceCommandRequest:
+      type: object
+      required: [command_type]
+      properties:
+        command_type:
+          type: string
+          enum: [TURN_ON, TURN_OFF, SET_TARGET_TEMPERATURE, OPEN, CLOSE]
+        payload:
+          type: object
+          additionalProperties: true
+
+    CommandResponse:
+      type: object
+      properties:
+        command_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [ACCEPTED, REJECTED]
+        device_id:
+          type: string
+          format: uuid
+        command_type:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    TelemetryListResponse:
+      type: object
+      properties:
+        device_id:
+          type: string
+          format: uuid
+        total:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TelemetryRecord'
+
+    TelemetryRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        metric_type:
+          type: string
+        value:
+          type: number
+          format: double
+        unit:
+          type: string
+        recorded_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
