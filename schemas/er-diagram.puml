@@ -1,0 +1,193 @@
+@startuml ER_WarmHome
+!define TABLE(name, desc) class name as "desc" << (T, #FFAAAA) >>
+!define PK(x) <u>x</u>
+!define FK(x) <i>x</i>
+
+hide methods
+hide stereotypes
+
+skinparam linetype ortho
+skinparam class {
+  BackgroundColor #FEFECE
+  BorderColor #A80036
+  ArrowColor #A80036
+}
+
+title ER-диаграмма — Экосистема «Теплый дом»
+
+' === USER SERVICE ===
+TABLE(User, "User") {
+  PK(id): UUID
+  email: VARCHAR(255)
+  password_hash: VARCHAR(255)
+  full_name: VARCHAR(255)
+  phone: VARCHAR(50)
+  role: ENUM(OWNER, ADMIN)
+  created_at: TIMESTAMP
+}
+
+TABLE(House, "House") {
+  PK(id): UUID
+  FK(owner_id): UUID
+  address: VARCHAR(500)
+  name: VARCHAR(255)
+  timezone: VARCHAR(100)
+  created_at: TIMESTAMP
+}
+
+TABLE(UserHouseAccess, "UserHouseAccess") {
+  PK(id): UUID
+  FK(user_id): UUID
+  FK(house_id): UUID
+  access_level: ENUM(READ, CONTROL, ADMIN)
+  granted_at: TIMESTAMP
+}
+
+' === DEVICE SERVICE ===
+TABLE(DeviceType, "DeviceType") {
+  PK(id): UUID
+  name: VARCHAR(100)
+  category: ENUM(HEATING, LIGHTING, GATE, CAMERA, SENSOR)
+  protocol: ENUM(MQTT, HTTP)
+  manufacturer: VARCHAR(255)
+}
+
+TABLE(Device, "Device") {
+  PK(id): UUID
+  FK(type_id): UUID
+  FK(house_id): UUID
+  serial_number: VARCHAR(100)
+  name: VARCHAR(255)
+  status: ENUM(ONLINE, OFFLINE, ERROR, EXECUTING)
+  ip_address: VARCHAR(45)
+  registered_at: TIMESTAMP
+  last_seen_at: TIMESTAMP
+}
+
+TABLE(Module, "Module") {
+  PK(id): UUID
+  FK(house_id): UUID
+  type: ENUM(HEATING, LIGHTING, GATE, CAMERA)
+  is_active: BOOLEAN
+  settings: JSONB
+  activated_at: TIMESTAMP
+}
+
+TABLE(ModuleDevice, "ModuleDevice") {
+  PK(id): UUID
+  FK(module_id): UUID
+  FK(device_id): UUID
+}
+
+' === TELEMETRY SERVICE ===
+TABLE(TelemetryData, "TelemetryData") {
+  PK(id): UUID
+  FK(device_id): UUID
+  metric_type: VARCHAR(50)
+  value: DECIMAL(10,2)
+  unit: VARCHAR(20)
+  recorded_at: TIMESTAMP
+}
+
+' === HEATING SERVICE ===
+TABLE(HeatingZone, "HeatingZone") {
+  PK(id): UUID
+  FK(module_id): UUID
+  name: VARCHAR(100)
+  target_temperature: DECIMAL(5,2)
+  mode: ENUM(OFF, AUTO, MANUAL, SCHEDULE)
+  updated_at: TIMESTAMP
+}
+
+TABLE(HeatingSchedule, "HeatingSchedule") {
+  PK(id): UUID
+  FK(zone_id): UUID
+  cron_expression: VARCHAR(100)
+  target_temperature: DECIMAL(5,2)
+  is_active: BOOLEAN
+}
+
+' === SCENARIO SERVICE ===
+TABLE(Scenario, "Scenario") {
+  PK(id): UUID
+  FK(house_id): UUID
+  FK(created_by): UUID
+  name: VARCHAR(255)
+  is_active: BOOLEAN
+  created_at: TIMESTAMP
+}
+
+TABLE(ScenarioTrigger, "ScenarioTrigger") {
+  PK(id): UUID
+  FK(scenario_id): UUID
+  trigger_type: ENUM(TELEMETRY, SCHEDULE, MANUAL)
+  FK(device_id): UUID
+  condition_metric: VARCHAR(50)
+  condition_operator: ENUM(GT, LT, EQ)
+  condition_value: DECIMAL(10,2)
+}
+
+TABLE(ScenarioAction, "ScenarioAction") {
+  PK(id): UUID
+  FK(scenario_id): UUID
+  FK(device_id): UUID
+  action_type: VARCHAR(100)
+  action_payload: JSONB
+  execution_order: INT
+}
+
+' === NOTIFICATION SERVICE ===
+TABLE(NotificationRule, "NotificationRule") {
+  PK(id): UUID
+  FK(user_id): UUID
+  FK(device_id): UUID
+  event_type: VARCHAR(100)
+  channel: ENUM(EMAIL, SMS, PUSH)
+  is_active: BOOLEAN
+}
+
+TABLE(NotificationLog, "NotificationLog") {
+  PK(id): UUID
+  FK(rule_id): UUID
+  FK(user_id): UUID
+  channel: ENUM(EMAIL, SMS, PUSH)
+  message: TEXT
+  status: ENUM(SENT, FAILED, PENDING)
+  sent_at: TIMESTAMP
+}
+
+' === RELATIONS ===
+User "1" -- "0..*" House : owns >
+User "0..*" -- "0..*" House : has access >\nvia UserHouseAccess
+UserHouseAccess }o-- User
+UserHouseAccess }o-- House
+
+House "1" -- "0..*" Device : contains >
+House "1" -- "0..*" Module : has >
+House "1" -- "0..*" Scenario : defines >
+
+DeviceType "1" -- "0..*" Device : typed by >
+
+Module "1" -- "0..*" ModuleDevice : groups >
+Device "1" -- "0..*" ModuleDevice : belongs to >
+ModuleDevice }o-- Module
+ModuleDevice }o-- Device
+
+Module "1" -- "0..1" HeatingZone : controls >
+
+Device "1" -- "0..*" TelemetryData : generates >
+
+HeatingZone "1" -- "0..*" HeatingSchedule : scheduled by >
+
+Scenario "1" -- "1..*" ScenarioTrigger : triggered by >
+Scenario "1" -- "1..*" ScenarioAction : executes >
+ScenarioTrigger }o-- Device
+ScenarioAction }o-- Device
+Scenario }o-- House
+Scenario }o-- User
+
+User "1" -- "0..*" NotificationRule : subscribes >
+NotificationRule }o-- Device
+NotificationRule "1" -- "0..*" NotificationLog : produces >
+
+@enduml

@@ -1,0 +1,46 @@
+@startuml C4_Code_TelemetryToHeating
+title Диаграмма последовательности — Обработка телеметрии и управление отоплением
+
+participant "IoT Датчик" as Sensor
+participant "TelemetryService" as TS
+participant "Kafka" as Kafka
+participant "HeatingService" as HS
+participant "TemperaturePolicy" as TP
+participant "DeviceService" as DS
+participant "IoT Контроллер отопления" as HC
+
+Sensor -> TS: POST /telemetry\n{deviceId, temperature, timestamp}
+activate TS
+TS -> TS: Валидация и сохранение\nв TimescaleDB
+TS -> Kafka: publish(TelemetryReceived)\n{deviceId, zoneId, temperature}
+deactivate TS
+
+Kafka -> HS: consume(TelemetryReceived)
+activate HS
+HS -> TP: recalculateCommands(zone, telemetry)
+activate TP
+TP -> TP: Сравнить текущую температуру\nс целевой (с учетом гистерезиса)
+alt Температура ниже целевой
+  TP --> HS: [HeatingCommand: TURN_ON]
+else Температура достигнута
+  TP --> HS: [HeatingCommand: TURN_OFF]
+else В пределах гистерезиса
+  TP --> HS: [] (команды не нужны)
+end
+deactivate TP
+
+HS -> HS: Сохранить команду\nв Heating DB
+
+HS -> DS: POST /devices/{id}/commands\n{type: TURN_ON/OFF}
+activate DS
+DS -> DS: Проверить статус устройства\nи допустимость команды
+DS -> HC: Отправить команду\n(MQTT / HTTP)
+HC --> DS: Подтверждение выполнения
+DS -> Kafka: publish(CommandExecuted)\n{deviceId, commandType, status: SUCCESS}
+DS --> HS: 200 OK {commandId, status}
+deactivate DS
+
+HS -> Kafka: publish(HeatingStateChanged)\n{zoneId, newState, temperature}
+deactivate HS
+
+@enduml

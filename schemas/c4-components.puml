@@ -1,0 +1,33 @@
+@startuml C4_Components_DeviceService
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+title C4 Components — Device Service
+
+Container_Boundary(deviceService, "Device Service") {
+  Component(deviceController, "DeviceController", "REST API Handler", "Принимает запросы от API Gateway: регистрация, получение состояния, отправка команд, удаление устройств")
+  Component(commandHandler, "CommandHandler", "Application Service", "Обрабатывает команды управления устройствами (вкл/выкл, настройка), валидирует допустимость команды для типа устройства")
+  Component(stateManager, "DeviceStateManager", "Domain Service", "Управляет жизненным циклом состояния устройства: OFFLINE, ONLINE, ERROR, EXECUTING_COMMAND. Применяет бизнес-правила переходов")
+  Component(protocolAdapter, "ProtocolAdapter", "Infrastructure Component", "Абстракция поверх протоколов MQTT и HTTP для работы с партнерскими устройствами по стандартным интерфейсам")
+  Component(deviceRepository, "DeviceRepository", "Repository", "Доступ к данным: устройства, типы, серийные номера, текущие состояния")
+  Component(eventPublisher, "DeviceEventPublisher", "Integration Component", "Публикует события DeviceRegistered, DeviceStatusChanged, CommandExecuted в Kafka")
+}
+
+ContainerDb(deviceDb, "Device DB", "PostgreSQL", "Устройства, типы, статусы")
+Container(broker, "Message Broker", "Kafka", "Шина событий платформы")
+System_Ext(iotDevices, "IoT устройства", "Физические устройства партнеров")
+Container(apiGateway, "API Gateway", "Nginx / Envoy", "Внешние запросы")
+
+Rel(apiGateway, deviceController, "REST запросы", "HTTP/JSON")
+Rel(deviceController, commandHandler, "Делегирует выполнение команд")
+Rel(deviceController, stateManager, "Запрашивает текущее состояние")
+Rel(commandHandler, stateManager, "Проверяет и обновляет состояние")
+Rel(commandHandler, protocolAdapter, "Отправляет команду на устройство")
+Rel(stateManager, deviceRepository, "Читает и сохраняет состояния")
+Rel(deviceRepository, deviceDb, "CRUD", "SQL")
+Rel(stateManager, eventPublisher, "Триггерит публикацию при смене статуса")
+Rel(eventPublisher, broker, "Публикует DeviceStatusChanged", "Kafka produce")
+Rel(protocolAdapter, iotDevices, "Команды управления", "MQTT / HTTP")
+Rel(iotDevices, protocolAdapter, "Подтверждения и статусы", "MQTT / HTTP")
+
+@enduml

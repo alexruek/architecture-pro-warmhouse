@@ -1,0 +1,123 @@
+asyncapi: 2.6.0
+info:
+  title: Тёплый дом — Async Events API
+  version: 1.0.0
+  description: Асинхронные события платформы через Kafka
+
+servers:
+  production:
+    url: kafka.teplydом.ru:9092
+    protocol: kafka
+    description: Production Kafka Broker
+
+channels:
+
+  telemetry.received:
+    description: Событие о получении новых данных телеметрии от устройства
+    publish:
+      operationId: publishTelemetryReceived
+      summary: Telemetry Service публикует при каждом новом показании датчика
+      message:
+        $ref: '#/components/messages/TelemetryReceivedEvent'
+    subscribe:
+      operationId: consumeTelemetryReceived
+      summary: Подписчики — HeatingService, ScenarioService, NotificationService
+      message:
+        $ref: '#/components/messages/TelemetryReceivedEvent'
+
+  device.status.changed:
+    description: Событие об изменении статуса устройства (ONLINE/OFFLINE/ERROR)
+    publish:
+      operationId: publishDeviceStatusChanged
+      summary: Device Service публикует при каждом изменении статуса
+      message:
+        $ref: '#/components/messages/DeviceStatusChangedEvent'
+    subscribe:
+      operationId: consumeDeviceStatusChanged
+      summary: Подписчики — NotificationService, ScenarioService
+      message:
+        $ref: '#/components/messages/DeviceStatusChangedEvent'
+
+components:
+  messages:
+
+    TelemetryReceivedEvent:
+      name: TelemetryReceived
+      title: Новые данные телеметрии
+      contentType: application/json
+      payload:
+        type: object
+        required: [event_id, device_id, house_id, metric_type, value, unit, recorded_at]
+        properties:
+          event_id:
+            type: string
+            format: uuid
+            description: Уникальный идентификатор события
+          device_id:
+            type: string
+            format: uuid
+          house_id:
+            type: string
+            format: uuid
+          metric_type:
+            type: string
+            enum: [TEMPERATURE, HUMIDITY, POWER]
+          value:
+            type: number
+            format: double
+          unit:
+            type: string
+            example: "°C"
+          recorded_at:
+            type: string
+            format: date-time
+      examples:
+        - name: TemperatureSample
+          payload:
+            event_id: "e1a2b3c4-0001-0001-0001-000000000001"
+            device_id: "d1e2f3a4-0001-0001-0001-000000000010"
+            house_id: "a1b2c3d4-0001-0001-0001-000000000002"
+            metric_type: "TEMPERATURE"
+            value: 19.5
+            unit: "°C"
+            recorded_at: "2024-03-01T15:00:00Z"
+
+    DeviceStatusChangedEvent:
+      name: DeviceStatusChanged
+      title: Изменение статуса устройства
+      contentType: application/json
+      payload:
+        type: object
+        required: [event_id, device_id, house_id, old_status, new_status, changed_at]
+        properties:
+          event_id:
+            type: string
+            format: uuid
+          device_id:
+            type: string
+            format: uuid
+          house_id:
+            type: string
+            format: uuid
+          old_status:
+            type: string
+            enum: [ONLINE, OFFLINE, ERROR, EXECUTING]
+          new_status:
+            type: string
+            enum: [ONLINE, OFFLINE, ERROR, EXECUTING]
+          reason:
+            type: string
+            description: Причина изменения статуса (опционально)
+          changed_at:
+            type: string
+            format: date-time
+      examples:
+        - name: DeviceWentOffline
+          payload:
+            event_id: "e9f0a1b2-0001-0001-0001-000000000099"
+            device_id: "d1e2f3a4-0001-0001-0001-000000000010"
+            house_id: "a1b2c3d4-0001-0001-0001-000000000002"
+            old_status: "ONLINE"
+            new_status: "OFFLINE"
+            reason: "Connection timeout"
+            changed_at: "2024-03-01T16:00:00Z"
