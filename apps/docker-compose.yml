@@ -33,6 +33,32 @@ services:
     networks:
       - smarthome-network
 
+  device-service:
+    build:
+      context: ./device-service
+      dockerfile: Dockerfile
+    container_name: smarthome-device-service
+    ports:
+      - "8082:8082"
+    restart: unless-stopped
+    networks:
+      - smarthome-network
+
+  telemetry-service:
+    build:
+      context: ./telemetry-service
+      dockerfile: Dockerfile
+    container_name: smarthome-telemetry-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - app
+    environment:
+      - SMART_HOME_URL=http://app:8080
+    restart: unless-stopped
+    networks:
+      - smarthome-network
+
   app:
     build:
       context: ./smart_home
